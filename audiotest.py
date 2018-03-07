@@ -28,9 +28,9 @@ import numpy as np
 import argparse
 
 CHUNK = 1024
-FORMAT = pyaudio.paInt16
-CHANNELS = 2
-RATE = 44100
+FORMAT = pyaudio.paInt16 #16 bit value
+CHANNELS = 1 # single channel
+RATE = 48000 #audio digitized at 48 kbps
 RECORD_SECONDS = 0.5
 
 class Audio_Server(threading.Thread):
@@ -124,7 +124,7 @@ class Audio_Client(threading.Thread):
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--host', type=str, default='127.0.0.1')
+parser.add_argument('--host', type=str, default='169.254.57.175') #other ip
 parser.add_argument('--port', type=int, default=10087)
 parser.add_argument('--noself', type=bool, default=False)
 parser.add_argument('--level', type=int, default=1)
