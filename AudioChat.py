@@ -13,7 +13,7 @@ CHUNK = 1024
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 44100
-RECORD_SECONDS = 0.5
+RECORD_SECONDS = 5
 
 class Audio_Server(threading.Thread):
     def __init__(self, port, version) :
