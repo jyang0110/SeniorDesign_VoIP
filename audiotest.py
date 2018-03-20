@@ -15,116 +15,130 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-from socket import *
-import threading
-import pyaudio
-import wave
-import sys
-import zlib
-import struct
-import pickle
-import time
+from socket import * # socket interface: https://docs.python.org/3.6/library/socket.html
+import threading # threading of client and server connections: https://docs.python.org/3/library/threading.html
+import pyaudio # play and record audio: http://people.csail.mit.edu/hubert/pyaudio/docs/
+import wave # interface with WAV audio format: https://docs.python.org/3.6/library/wave.html
+import sys # interact with interpreter: https://docs.python.org/3.6/library/sys.html
+import zlib # data compression and decompression: https://docs.python.org/3.6/library/zlib.html
+import struct # conversion between python and C stuctures: https://docs.python.org/3.6/library/struct.html
+import pickle # converts objects to bytes and vice versa: https://docs.python.org/3/library/pickle.html
+import time # used for waiting: https://docs.python.org/3.6/library/time.html
 import numpy as np
 import argparse
 
-CHUNK = 1024
+CHUNK = 1024 # byte size
 FORMAT = pyaudio.paInt16 #16 bit value
 CHANNELS = 1 # single channel
-RATE = 48000 #audio digitized at 48 kbps
-RECORD_SECONDS = 0.5
+RATE = 48000 #audio digitized at 48 ksps
+RECORD_SECONDS = 0.5 # used to change kbps: <10
 
 class Audio_Server(threading.Thread):
-    def __init__(self, port, version) :
-        threading.Thread.__init__(self)
-        self.setDaemon(True)
-        self.ADDR = ('', port)
-        if version == 4:
-            self.sock = socket(AF_INET ,SOCK_STREAM)
+    # on initialization
+    def __init__(self, port, version) : 
+        threading.Thread.__init__(self) # super init of Thread
+        self.setDaemon(True) # sets to be a dameon thread, ends on program close: https://stackoverflow.com/questions/190010/daemon-threads-explanation
+        self.ADDR = ('', port) # set ADDR to the port, don't care about own IP
+        if version == 4: # IPV4 or IPV6
+            self.sock = socket(AF_INET ,SOCK_STREAM) # (family, socket type)
         else:
-            self.sock = socket(AF_INET6 ,SOCK_STREAM)
-        self.p = pyaudio.PyAudio()
-        self.stream = None
+            self.sock = socket(AF_INET6 ,SOCK_STREAM) # (family, socket type)
+        self.p = pyaudio.PyAudio() # instantiate PyAudio
+        self.stream = None # set to nothing initially
+    # on deletion
     def __del__(self):
-        self.sock.close()
-        if self.stream is not None:
-            self.stream.stop_stream()
-            self.stream.close()
-        self.p.terminate()
+        self.sock.close() # close the socket
+        if self.stream is not None: # stream set to something
+            self.stream.stop_stream() # stop the stream
+            self.stream.close() # close the stream
+        self.p.terminate() # end the PyAudio
+    # thread activity starts
     def run(self):
-        print("AUDIO server starts...")
-        self.sock.bind(self.ADDR)
-        self.sock.listen(1)
-        conn, addr = self.sock.accept()
-        print("remote AUDIO client success connected...")
-        data = "".encode("utf-8")
-        payload_size = struct.calcsize("L")
+        print("AUDIO VOIP server started...") # display initial start message
+        self.sock.bind(self.ADDR) # binds the socket to the address
+        self.sock.listen(1) # accepts only one connection
+        conn, addr = self.sock.accept() # waits for the client to connect, returns connection 
+        print("remote AUDIO VOIP client success connected...") # once client connected
+        data = "".encode("utf-8") # use utf-8 encoding for data: https://en.wikipedia.org/wiki/UTF-8
+        payload_size = struct.calcsize("L") # calculate size of unsigned long for size
+        # opens the audio stream
         self.stream = self.p.open(format=FORMAT,
                                   channels=CHANNELS,
                                   rate=RATE,
                                   output=True,
                                   frames_per_buffer = CHUNK
                                   )
-        while True:
-            while len(data) < payload_size:
-                data += conn.recv(81920)
-            packed_size = data[:payload_size]
-            data = data[payload_size:]
-            msg_size = struct.unpack("L", packed_size)[0]
-            while len(data) < msg_size:
-                data += conn.recv(81920)
-            frame_data = data[:msg_size]
-            data = data[msg_size:]
-            frames = pickle.loads(frame_data)
-            for frame in frames:
-                self.stream.write(frame, CHUNK)
+        # THIS IS WHERE THE JITTER BUFFER SHOULD GO
+        # This might already be good enough with a few tweaks, not sure
+        # The serialization is already done through pickle and the frames
+        # are capped to drop the tail ones
+        while True: # run forever
+            while len(data) < payload_size: # while not overflowing
+                data += conn.recv(81920) # add received bytes to data, bufsize=81920
+            packed_size = data[:payload_size] # get everything before overflow
+            data = data[payload_size:] # set to the overflow bytes
+            msg_size = struct.unpack("L", packed_size)[0] # first element of unpacked data
+            while len(data) < msg_size: # if overflowed data less than size of msg
+                data += conn.recv(81920) # add received bytes to data, bufsize=81920
+            frame_data = data[:msg_size] # set to everything in overflowed data up to size of msg
+            data = data[msg_size:] # set data to overflow of the overflowed data
+            frames = pickle.loads(frame_data) # de-serializing of data
+            for frame in frames: # loops through all of the frames
+                self.stream.write(frame, CHUNK) # blocks until all frames have been played
 
 class Audio_Client(threading.Thread):
+    # on initialization
     def __init__(self ,ip, port, version):
-        threading.Thread.__init__(self)
-        self.setDaemon(True)
-        self.ADDR = (ip, port)
-        if version == 4:
-            self.sock = socket(AF_INET, SOCK_STREAM)
+        threading.Thread.__init__(self) # super init of Thread
+        self.setDaemon(True) # sets to be a dameon thread, ends on program close
+        self.ADDR = (ip, port) # set ADDR to the ip and port
+        if version == 4: # IPV4 or IPV6
+            self.sock = socket(AF_INET, SOCK_STREAM) # (family, socket type)
         else:
-            self.sock = socket(AF_INET6, SOCK_STREAM)
-        self.p = pyaudio.PyAudio()
-        self.stream = None
-        print("AUDIO client starts...")
+            self.sock = socket(AF_INET6, SOCK_STREAM) # (family, socket type)
+        self.p = pyaudio.PyAudio() # instantiate PyAudio
+        self.stream = None # set to nothing initially
+        print("AUDIO VOIP client started...") # display initial start message
+    # on deletion
     def __del__(self) :
-        self.sock.close()
-        if self.stream is not None:
-            self.stream.stop_stream()
-            self.stream.close()
-        self.p.terminate()
+        self.sock.close() # close the socket
+        if self.stream is not None: # stream set to something
+            self.stream.stop_stream() # stop the stream
+            self.stream.close() # close the stream
+        self.p.terminate() # end the PyAudio
+    # thread activity starts
     def run(self):
+        # continue trying to connect to server
         while True:
             try:
-                self.sock.connect(self.ADDR)
-                break
+                self.sock.connect(self.ADDR) # attempt to connect
+                break # if successful break
             except:
-                time.sleep(3)
+                time.sleep(3) # if not successful try again in 3 secs
                 continue
-        print("AUDIO client connected...")
+        print("AUDIO VOIP client connected...") # once success connects to server
+        # opens the audio stream
         self.stream = self.p.open(format=FORMAT, 
                              channels=CHANNELS,
                              rate=RATE,
                              input=True,
                              frames_per_buffer=CHUNK)
-        while self.stream.is_active():
+        while self.stream.is_active(): # while the stream is still active
             frames = []
-            for i in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
-                data = self.stream.read(CHUNK)
-                frames.append(data)
-            senddata = pickle.dumps(frames)
+            # should not exceed 10 kbps: currently: 48000/1024 * .5
+            for i in range(0, int(RATE / CHUNK * RECORD_SECONDS)): #<10 kbps
+                data = self.stream.read(CHUNK) # blocks untill all frames have been recorded
+                frames.append(data) # adds to end of data
+            senddata = pickle.dumps(frames) # serializes frames
             try:
-                self.sock.sendall(struct.pack("L", len(senddata)) + senddata)
+                self.sock.sendall(struct.pack("L", len(senddata)) + senddata) # sends data to server
             except:
                 break
 
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--host', type=str, default='169.254.57.175') #other ip
+parser.add_argument('--host', type=str, default='169.254.57.175') #repalce with other person's IP
 parser.add_argument('--port', type=int, default=10087)
 parser.add_argument('--noself', type=bool, default=False)
 parser.add_argument('--level', type=int, default=1)
@@ -132,19 +146,20 @@ parser.add_argument('-v', '--version', type=int, default=4)
 
 args = parser.parse_args()
 
-IP = args.host
-PORT = args.port
+IP = args.host # get IP
+PORT = args.port # get port
 VERSION = args.version
 SHOWME = not args.noself
 LEVEL = args.level
 
 if __name__ == '__main__':
-    aclient = Audio_Client(IP, PORT+1, VERSION)
-    aserver = Audio_Server(PORT+1, VERSION)
-    aclient.start()
-    aserver.start()
+    aclient = Audio_Client(IP, PORT+1, VERSION) # client
+    aserver = Audio_Server(PORT+1, VERSION) # server
+    aclient.start() # start client
+    aserver.start() # start server
     while True:
         time.sleep(1)
-        if not aserver.isAlive() or not aclient.isAlive():
+        # is alive tests if thread is connected (still alive)
+        if not aserver.isAlive() or not aclient.isAlive(): # either disconnected
             print("Audio connection lost...")
             sys.exit(0)
