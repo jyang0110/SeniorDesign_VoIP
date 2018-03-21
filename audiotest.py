@@ -22,10 +22,10 @@ import wave # interface with WAV audio format: https://docs.python.org/3.6/libra
 import sys # interact with interpreter: https://docs.python.org/3.6/library/sys.html
 import zlib # data compression and decompression: https://docs.python.org/3.6/library/zlib.html
 import struct # conversion between python and C stuctures: https://docs.python.org/3.6/library/struct.html
-import pickle # serializing and deserializing: https://docs.python.org/3/library/pickle.html
+import pickle # converts objects to bytes and vice versa: https://docs.python.org/3/library/pickle.html
 import time # used for waiting: https://docs.python.org/3.6/library/time.html
-import numpy as np # for arrays: https://docs.scipy.org/doc/numpy-1.13.0/reference/index.html
-import argparse # for specifying command line arguments: https://docs.python.org/3.6/library/argparse.html
+import numpy as np
+import argparse
 
 CHUNK = 1024 # byte size
 FORMAT = pyaudio.paInt16 #16 bit value
@@ -74,16 +74,15 @@ class Audio_Server(threading.Thread):
         # are capped to drop the tail ones
         while True: # run forever
             while len(data) < payload_size: # while not overflowing
-                # data += zlib.decompress(conn.recv(81920))
                 data += conn.recv(81920) # add received bytes to data, bufsize=81920
             packed_size = data[:payload_size] # get everything before overflow
             data = data[payload_size:] # set to the overflow bytes
             msg_size = struct.unpack("L", packed_size)[0] # first element of unpacked data
             while len(data) < msg_size: # if overflowed data less than size of msg
-                # data += zlib.decompress(conn.recv(81920))
                 data += conn.recv(81920) # add received bytes to data, bufsize=81920
-            frame_data = data[:msg_size] # set to everything in overflowed data up to size of msg
+            zframe_data = data[:msg_size] # set to everything in overflowed data up to size of msg
             data = data[msg_size:] # set data to overflow of the overflowed data
+            frame_data=zlib.decompress(zframe_data) # decompress data
             frames = pickle.loads(frame_data) # de-serializing of data
             for frame in frames: # loops through all of the frames
                 self.stream.write(frame, CHUNK) # blocks until all frames have been played
@@ -129,19 +128,20 @@ class Audio_Client(threading.Thread):
             frames = []
             # should not exceed 10 kbps: currently: 48000/1024 * .5
             for i in range(0, int(RATE / CHUNK * RECORD_SECONDS)): #<10 kbps
-                data = self.stream.read(CHUNK) # blocks untill all frames have been recorded
-                # compressData = zlib.compress(data,-1) #compress with default compression
-                frames.append(data) # adds to end of data
-            senddata = pickle.dumps(frames) # serializes frames
+                data = self.stream.read(CHUNK) # blocks until all frames have been recorded
+                frames.append(data) # adds to end of data 
+                senddata = pickle.dumps(frames) # serializes frames
+                zdata = zlib.compress(senddata,zlib.Z_BEST_COMPRESSION) #compress data
+            
             try:
-                self.sock.sendall(struct.pack("L", len(senddata)) + senddata) # sends data to server
+                self.sock.sendall(struct.pack("L", len(zdata)) + zdata) # sends data to server
             except:
                 break
 
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--host', type=str, default='169.254.57.175') #repalce with other person's IP
+parser.add_argument('--host', type=str, default='127.0.0.1') #repalce with other person's IP
 parser.add_argument('--port', type=int, default=10087)
 parser.add_argument('--noself', type=bool, default=False)
 parser.add_argument('--level', type=int, default=1)
