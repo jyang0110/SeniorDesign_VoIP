@@ -74,12 +74,12 @@ class Audio_Server(threading.Thread):
         # are capped to drop the tail ones
         while True: # run forever
             while len(data) < payload_size: # while not overflowing
-                data += conn.recv(81920) # add received bytes to data, bufsize=81920
+                data += conn.recv(136) # add received bytes to data, bufsize=81920
             packed_size = data[:payload_size] # get everything before overflow
             data = data[payload_size:] # set to the overflow bytes
             msg_size = struct.unpack("L", packed_size)[0] # first element of unpacked data
             while len(data) < msg_size: # if overflowed data less than size of msg
-                data += conn.recv(81920) # add received bytes to data, bufsize=81920
+                data += conn.recv(136) # add received bytes to data, bufsize=81920
             zframe_data = data[:msg_size] # set to everything in overflowed data up to size of msg
             data = data[msg_size:] # set data to overflow of the overflowed data
             frame_data=zlib.decompress(zframe_data) # decompress data
