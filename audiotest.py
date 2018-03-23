@@ -31,7 +31,7 @@ CHUNK = 1024 # byte size
 FORMAT = pyaudio.paInt16 #16 bit value
 CHANNELS = 1 # single channel
 RATE = 48000 #audio digitized at 48 ksps
-RECORD_SECONDS = 0.5 # used to change kbps: <10
+RECORD_SECONDS = 0.25 # used to change kbps: <10
 
 class Audio_Server(threading.Thread):
     # on initialization
