@@ -1,0 +1,7 @@
+The following parts are needed:
+Note that this is just for one of the two devices.
+
+- a computer with the windows OS that can connect to the same network
+- a ethernet cable
+- a soundcard if the a good enough one is not built into the computer
+- headphones with a mic or an equivalent talking and listening setup

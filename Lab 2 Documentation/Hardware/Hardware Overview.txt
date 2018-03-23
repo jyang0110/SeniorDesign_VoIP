@@ -1,0 +1,3 @@
+The voice over IP device does not require any hardware assembly. 
+Simply make the necessary connection to the network and plug in the soundcard or microphone setup.
+See the Software Overview and setup instructions in the Software and Firmware folder for more details.

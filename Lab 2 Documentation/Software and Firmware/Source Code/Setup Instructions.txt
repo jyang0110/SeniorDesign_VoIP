@@ -1,0 +1,16 @@
+Pre-requirements:
+1. Make sure you have python 3.6 installed. To check your version, type python --v in the command line.
+
+Library instillation instructions:
+Most likely you will not have pyaudio and numpy installed. If this is the case
+simply install them by doing pip install pyaudio, and pip install numpy. Depending on your
+python setup you may be able to type this anywhere from the commandline or you may have to
+navigate to where the pip script is located.
+
+In the code, the default IP is currently set to 127.0.0.1 (localhost). Change this to the
+IP of the other device or specify the other person's IP with the commandline arguments. See
+the comments in the code for more details on how to do this.
+
+Also note that both devices need to be on the same network, connected with ethernet or wifi.
+
+You are now ready to run the code.

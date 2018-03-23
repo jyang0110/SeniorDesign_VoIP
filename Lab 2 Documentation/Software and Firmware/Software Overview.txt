@@ -1,0 +1,21 @@
+These are the software files for the voice over IP device.
+
+The software consists of one file [insert filename here] that starts as server and a client.
+The client connects to the other person's IP and the server waits for a connection by the 
+other person's client. Once both clients are connected to the other person's server the 
+conversation can start. When a person talks, their analog voice is recored, converted to digital
+bytes and serialized, encoded, sent to the other person, decoded, reodered and converted
+back to analog format, and then played to the other person. For more details on how this works
+and what libraries are used see the documentation in the code([insert filename here]). The setup
+instruction has more details on how to download these libraries.
+
+The device adheres to the following requirements:
+- Audio digitized at 48 ksps
+- Samples are 16 bit values
+- Single channel
+- Total data transfer rate <= 10 kbps
+- Audio is compressed when sent, decompressed when received
+- Latency <= 300 ms
+- Data transfered through tcp/udp socket over the network
+- Conversations can last >= 1 min
+- Simultaneous transmission and receiving 
