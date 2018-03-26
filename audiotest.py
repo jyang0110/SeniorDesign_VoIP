@@ -31,7 +31,7 @@ CHUNK = 1024 # byte size
 FORMAT = pyaudio.paInt16 #16 bit value
 CHANNELS = 1 # single channel
 RATE = 48000 #audio digitized at 48 ksps
-RECORD_SECONDS = 0.25 # used to change kbps: <10
+RECORD_SECONDS = .5 # 500 ms: used to change kbps: <10
 
 class Audio_Server(threading.Thread):
     # on initialization
@@ -68,10 +68,7 @@ class Audio_Server(threading.Thread):
                                   output=True,
                                   frames_per_buffer = CHUNK
                                   )
-        # THIS IS WHERE THE JITTER BUFFER SHOULD GO
-        # This might already be good enough with a few tweaks, not sure
-        # The serialization is already done through pickle and the frames
-        # are capped to drop the tail ones
+        # receive data, using a simple buffer to handle jitter
         while True: # run forever
             while len(data) < payload_size: # while not overflowing
                 data += conn.recv(136) # add received bytes to data, bufsize=81920
@@ -82,6 +79,7 @@ class Audio_Server(threading.Thread):
                 data += conn.recv(136) # add received bytes to data, bufsize=81920
             zframe_data = data[:msg_size] # set to everything in overflowed data up to size of msg
             data = data[msg_size:] # set data to overflow of the overflowed data
+            print(time.time())
             frame_data=zlib.decompress(zframe_data) # decompress data
             frames = pickle.loads(frame_data) # de-serializing of data
             for frame in frames: # loops through all of the frames
@@ -126,13 +124,15 @@ class Audio_Client(threading.Thread):
                              frames_per_buffer=CHUNK)
         while self.stream.is_active(): # while the stream is still active
             frames = []
-            # should not exceed 10 kbps: currently: 48000/1024 * .5
+            # between: 5k - 15k
             for i in range(0, int(RATE / CHUNK * RECORD_SECONDS)): #<10 kbps
                 data = self.stream.read(CHUNK) # blocks until all frames have been recorded
                 frames.append(data) # adds to end of data 
                 senddata = pickle.dumps(frames) # serializes frames
-                zdata = zlib.compress(senddata,zlib.Z_BEST_COMPRESSION) #compress data
-            
+                print("normal: " + str(len(senddata)))
+                print(time.time())
+                zdata = zlib.compress(senddata,zlib.Z_BEST_COMPRESSION) #compress data: 20-50% compression
+                print("compressed: " + str(len(zdata)))
             try:
                 self.sock.sendall(struct.pack("L", len(zdata)) + zdata) # sends data to server
             except:
